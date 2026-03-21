@@ -33,6 +33,7 @@ services:
       - 6881:6881 # qbittorrent torrent port
       - 6789:6789 # nzbget
       - 9696:9696 # prowlarr
+      - 8191:8191 # flaresolverr
     volumes:
       - ./gluetun:/gluetun
     # Make a '.env' file in the same directory.
@@ -120,6 +121,21 @@ services:
         restart: true
     network_mode: service:gluetun
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=${TZ}
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true
+    network_mode: service:gluetun
+    restart: unless-stopped
+
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
@@ -192,36 +208,26 @@ services:
       servarrnetwork:
         ipv4_address: 172.39.0.6
 
-# Newer additions to this stack feel. Remove the '#' to add the service.
-#
-#  ytdl-sub:
-#    image: ghcr.io/jmbannon/ytdl-sub:latest
-#    container_name: ytdl-sub
-#    environment:
-#      - PUID=${PUID}
-#      - PGID=${PGID}
-#      - TZ=${TZ}
-#      - DOCKER_MODS=linuxserver/mods:universal-cron
-#    volumes:
-#      - ./ytdl-sub:/config
-#      - /data/youtube:/youtube
-#    networks:
-#      servarrnetwork:
-#        ipv4_address: 172.39.0.8
-#    restart: unless-stopped
-#
-#  jellyseerr:
-#    container_name: jellyseerr
-#    image: fallenbagel/jellyseerr:latest
-#    environment:
-#      - PUID=${PUID}
-#      - PGID=${PGID}
-#      - TZ=${TZ}
-#    volumes:
-#      - ./jellyseerr:/app/config
-#    ports:
-#      - 5055:5055
-#    networks:
-#      servarrnetwork:
-#        ipv4_address: 172.39.0.9
-#    restart: unless-stopped
+  seerr:
+    container_name: seerr
+    image: ghcr.io/seerr-team/seerr:latest
+    environment:
+      - LOG_LEVEL=debug
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/status || exit 1
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
+      retries: 3
+    restart: unless-stopped
+    volumes:
+      - ./seerr:/app/config
+    ports:
+      - 5055:5055
+
+    networks:
+      servarrnetwork:
+        ipv4_address: 172.39.0.7
