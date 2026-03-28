@@ -227,7 +227,6 @@ services:
       - ./seerr:/app/config
     ports:
       - 5055:5055
-
     networks:
       servarrnetwork:
         ipv4_address: ${SET_IP_SEERR}
